@@ -1,0 +1,22 @@
+{
+  "name": "halite_ai",
+  "version": "0.2.0",
+  "description": "Halite AI for 2018 games",
+  "main": "MyBot.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DeveloperUX/halite-game-ai.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/DeveloperUX/halite-game-ai/issues"
+  },
+  "homepage": "https://github.com/DeveloperUX/halite-game-ai#readme",
+  "dependencies": {
+    "@tensorflow/tfjs-node-gpu": "^1.7.0"
+  }
+}

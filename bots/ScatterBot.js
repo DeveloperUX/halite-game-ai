@@ -1,7 +1,7 @@
 const Game = require('../hlt/Game');
 const Log = require('../hlt/Log');
 
-const {scatterStrategy} = require('../strategies/strategies');
+const { scatterStrategy } = require('../strategies/scatterStrategy');
 
 // start a game with a bot named 'JsBot'
 // and a strategy defaultStrategy defined in strategies.js

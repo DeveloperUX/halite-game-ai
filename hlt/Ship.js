@@ -101,7 +101,7 @@ class Ship extends Entity {
      * itself here, else navigate will crash into the target. If avoidObstacles is set to true (default)
      * will avoid obstacles on the way, with up to maxCorrections corrections. Note that each correction accounts
      * for angularStep degrees difference, meaning that the algorithm will naively try max_correction degrees before giving
-     * up (and returning null). The navigation will only consist of up to one command; call this method again
+     * up (and returning null). The navigation will only consist of up to one goal; call this method again
      * in the next turn to continue navigating to the position.
      * @param {Entity} target the entity to which you will navigate
      * @param {number} keepDistanceToTarget distance to maintain to the target

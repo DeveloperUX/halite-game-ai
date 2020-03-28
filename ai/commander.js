@@ -2,13 +2,9 @@ const constants = require('../hlt/Constants');
 const Geometry = require('../hlt/Geometry');
 const Log = require('../hlt/Log');
 
-const ATTACK = 0;
-const DEFEND = 1;
-const HARVEST = 2;
-
-class ShipAdapter {
-  ship;
-}
+const ATTACK = 'ATTACK';
+const DEFEND = 'DEFEND';
+const HARVEST = 'HARVEST';
 
 const attackDockedEnemyShips = ({ ship, enemyPlanets}) => {
   const planets = enemyPlanets
@@ -25,15 +21,15 @@ const attackDockedEnemyShips = ({ ship, enemyPlanets}) => {
 };
 
 const attackEnemyShips = ({ ship, enemyShips}) => {
-  const planets = enemyShips
+  const ships = enemyShips
     .filter(p => byDistance(ship, p)(60))
     .sort((a, b) => byNearest(a, b)(ship));
-  if (planets.length > 0) {
-    Log.log('Attack enemy planets');
+  if (ships.length > 0) {
+    Log.log('Attack enemy ships');
     return {
       ship,
       command: ATTACK,
-      target: planets[0]
+      target: ships[0]
     }
   }
 };
@@ -64,6 +60,19 @@ const dockEmptyPlanet = ({ship, emptyPlanets}) => {
   }
 };
 
+const scoutDistantEmptyPlanet = ({ship, emptyPlanets}) => {
+  const planets = emptyPlanets
+    .sort((a, b) => byNearest(b, a)(ship));
+  if (planets.length > 0) {
+    Log.log('Dock new distant planets');
+    return {
+      ship,
+      command: HARVEST,
+      target: planets[0]
+    }
+  }
+};
+
 const defendMyPlanet = ({ship, myDockedPlanets, myFreePlanets, enemyShips}) => {
   const myPlanets = [...myDockedPlanets, ...myFreePlanets];
   // which planets have an enemy nearby heading towards it?
@@ -85,6 +94,11 @@ const defendMyPlanet = ({ship, myDockedPlanets, myFreePlanets, enemyShips}) => {
 };
 
 
+// Commands in order of priority
+// 1. Defend Docked planets
+// 2. Dock new planets
+// 3. Dock existing planets
+// 4. Attack enemy planets
 const aggressive = ({ ship, enemyShips, myDockedPlanets, myFreePlanets, enemyPlanets, emptyPlanets}) => {
   return {
     ...dockMyPlanet({ship, myFreePlanets}),
@@ -94,6 +108,41 @@ const aggressive = ({ ship, enemyShips, myDockedPlanets, myFreePlanets, enemyPla
     ...attackEnemyShips({ship, enemyShips}),
   }
 };
+const defensive = ({ ship, enemyShips, myDockedPlanets, myFreePlanets, enemyPlanets, emptyPlanets}) => {
+  return {
+    ...attackEnemyShips({ship, enemyShips}),
+    ...dockEmptyPlanet({ship, emptyPlanets}),
+    ...attackDockedEnemyShips({ship, enemyPlanets}),
+    ...dockMyPlanet({ship, myFreePlanets}),
+    ...defendMyPlanet({ship, myDockedPlanets, myFreePlanets, enemyShips}),
+  }
+};
+const balanced = ({ ship, enemyShips, myDockedPlanets, myFreePlanets, enemyPlanets, emptyPlanets}) => {
+  return {
+    ...attackEnemyShips({ship, enemyShips}),
+    ...dockEmptyPlanet({ship, emptyPlanets}),
+    ...dockMyPlanet({ship, myFreePlanets}),
+    ...attackDockedEnemyShips({ship, enemyPlanets}),
+    ...defendMyPlanet({ship, myDockedPlanets, myFreePlanets, enemyShips}),
+  }
+};
+const scavenger = ({ ship, enemyShips, myDockedPlanets, myFreePlanets, enemyPlanets, emptyPlanets}) => {
+  return {
+    ...attackEnemyShips({ship, enemyShips}),
+    ...attackDockedEnemyShips({ship, enemyPlanets}),
+    ...defendMyPlanet({ship, myDockedPlanets, myFreePlanets, enemyShips}),
+    ...dockMyPlanet({ship, myFreePlanets}),
+    ...dockEmptyPlanet({ship, emptyPlanets}),
+    ...scoutDistantEmptyPlanet({ship, emptyPlanets})
+  }
+};
+
+const strategies = [
+  aggressive,
+  defensive,
+  scavenger,
+  balanced
+];
 
 const byNearest = (a, b) => point => Geometry.distance(point, a) - Geometry.distance(point, b);
 const byDistance = (a, b) => distance => Geometry.distance(a, b) < distance;
@@ -103,49 +152,50 @@ class Commander {
   map;
   turn;
   goal;
-  curShip;
+  ships;
   plot;
 
   constructor(map) {
     this.map = map;
     this.turn = 0;
     this.goal = {};
-    this.plot = aggressive;
+    this.ships = {};
+    this.plot = (strategy) => (data) => strategy(data);
   }
 
   getMyPlanets(planets) {
     return planets
       .filter(p => p.isOwnedByMe())
-      // .sort((a, b) => Geometry.distance(this.curShip, a) - Geometry.distance(this.curShip, b));
   }
 
   getDockedPlanets(planets) {
     return planets
       .filter(p => !p.hasDockingSpot())
-      // .sort((a, b) => Geometry.distance(this.curShip, a) - Geometry.distance(this.curShip, b));
   }
 
   getFreePlanets(planets) {
     return planets
       .filter(p => p.hasDockingSpot())
-      // .sort((a, b) => Geometry.distance(this.curShip, a) - Geometry.distance(this.curShip, b));
   }
 
   getEmptyPlanets(planets) {
     return planets
       .filter(p => p.isFree())
-      // .sort((a, b) => Geometry.distance(this.curShip, a) - Geometry.distance(this.curShip, b));
   }
 
   getEnemyPlanets(planets) {
     return planets
       .filter(p => p.isOwnedByEnemy())
-      // .sort((a, b) => Geometry.distance(this.curShip, a) - Geometry.distance(this.curShip, b));
   }
 
   strategize(gameMap, ship) {
-    this.curShip = ship;
-    // Get the nearest docked planet
+    const starShip = this.ships[ship.id] = {
+      ...ship,
+      ...{
+        strategy: strategies[ship.id % 1]
+      },
+      ...this.ships[ship.id]
+    };
     const { planets, enemyShips } = gameMap;
     const myPlanets = this.getMyPlanets(planets);
     const myDockedPlanets = this.getDockedPlanets(myPlanets);
@@ -153,13 +203,7 @@ class Commander {
     const enemyPlanets = this.getEnemyPlanets(planets);
     const emptyPlanets = this.getEmptyPlanets(planets);
 
-    // Commands in order of priority
-    // 1. Defend Docked planets
-    // 2. Dock new planets
-    // 3. Dock existing planets
-    // 4. Attack enemy planets
-
-    const goal = this.plot({
+    const goal = this.plot(starShip.strategy)({
       ship,
       enemyShips,
       myDockedPlanets,
@@ -169,6 +213,7 @@ class Commander {
     });
 
     if (Object.keys(goal).length !== 0) {
+      Log.log('Ship: ' + ship.id + ' | Strategy : ' + this.ships[ship.id].strategy.name + ' | Goal: ' + goal.command);
       this.setShipGoal({
         ...goal
       });

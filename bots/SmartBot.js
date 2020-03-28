@@ -1,11 +1,5 @@
 const {Commander} = require('../ai/commander');
-
-const {attackStrategy} = require('../strategies/attackStrategy');
-const {scatterStrategy} = require('../strategies/scatterStrategy');
-const {fastStrategy} = require('../strategies/fastStrategy');
-
 const Game = require('../hlt/Game');
-
 const Log = require('../hlt/Log');
 
 // start a game with a bot named 'JsBot'
@@ -29,7 +23,7 @@ Game.start({
       Log.log('--------------------- START ---------------------------');
       Log.log('Ship Plotting: ' + ship.id);
       commander.strategize(gameMap, ship);
-      Log.log('Ship Command: ' + commander.goal[ship.id]);
+      // Log.log('Ship Command: ' + commander.goal[ship.id]);
       Log.log('---------------------- END --------------------------');
     }
     return commander.getNextMoves(freeShips);
